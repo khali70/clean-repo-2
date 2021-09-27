@@ -1,112 +1,111 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
-
 import React from 'react';
-import type {Node} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+  Root,
+  StyleProvider,
+} from 'native-base';
+import RNBluetoothClassic from 'react-native-bluetooth-classic';
+import getTheme from './native-base-theme/components';
+import platform from './native-base-theme/variables/platform';
+import ConnectionScreen from './src/connection/ConnectionScreen';
+import DeviceListScreen from './src/device-list/DeviceListScreen';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+export default class App extends React.Component {
+  constructor(props) {
+    super(props);
 
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+    this.state = {
+      device: undefined,
+      bluetoothEnabled: true,
+    };
+  }
 
-const App: () => Node = () => {
-  const isDarkMode = useColorScheme() === 'dark';
+  /**
+   * Sets the current device to the application state.  This is super basic 
+   * and should be updated to allow for things like:
+   * - multiple devices
+   * - more advanced state management (redux)
+   * - etc
+   *
+   * @param device the BluetoothDevice selected or connected
+   */
+  selectDevice = (device) => {
+    console.log('App::selectDevice() called with: ', device);
+    this.setState({ device });
+  }
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  /**
+   * On mount:
+   *
+   * - setup the connect and disconnect listeners
+   * - determine if bluetooth is enabled (may be redundant with listener)
+   */
+  async componentDidMount() {
+    console.log('App::componentDidMount adding listeners: onBluetoothEnabled and onBluetoothDistabled');
+    console.log('App::componentDidMount alternatively could use onStateChanged');
+    this.enabledSubscription = RNBluetoothClassic
+      .onBluetoothEnabled((event) => this.onStateChanged(event));
+    this.disabledSubscription = RNBluetoothClassic
+      .onBluetoothDisabled((event) => this.onStateChanged(event));
 
-  return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-};
+    this.checkBluetootEnabled();
+  }
 
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+  /**
+   * Performs check on bluetooth being enabled.  This removes the `setState()`
+   * from `componentDidMount()` and clears up lint issues.
+   */
+  async checkBluetootEnabled() {
+    try {
+      console.log('App::componentDidMount Checking bluetooth status');
+      let enabled = await RNBluetoothClassic.isBluetoothEnabled();
 
-export default App;
+      console.log(`App::componentDidMount Status: ${enabled}`);
+      this.setState({ bluetoothEnabled: enabled });
+    } catch (error) {
+      console.log('App::componentDidMount Status Error: ', error);
+      this.setState({ bluetoothEnabled: false });
+    }
+  }
+
+  /**
+   * Clear subscriptions
+   */
+  componentWillUnmount() {
+    console.log('App:componentWillUnmount removing subscriptions: enabled and distabled');
+    console.log('App:componentWillUnmount alternatively could have used stateChanged');
+    this.enabledSubscription.remove();
+    this.disabledSubscription.remove();
+  }
+
+  /**
+   * Handle state change events.
+   *
+   * @param stateChangedEvent event sent from Native side during state change
+   */
+  onStateChanged(stateChangedEvent) {
+    console.log('App::onStateChanged event used for onBluetoothEnabled and onBluetoothDisabled');
+
+    this.setState({
+      bluetoothEnabled: stateChangedEvent.enabled,
+      device: stateChangedEvent.enabled ? this.state.device : undefined,
+    });
+  }
+
+  render() {
+    return (
+      <StyleProvider style={getTheme(platform)}>
+        <Root>
+          {!this.state.device ? (
+            <DeviceListScreen
+              bluetoothEnabled={this.state.bluetoothEnabled}
+              selectDevice={this.selectDevice} />
+          ) : (
+              <ConnectionScreen
+                device={this.state.device}
+                onBack={() => this.setState({ device: undefined })} />
+            )}
+        </Root>
+      </StyleProvider>
+    );
+  }
+}
