@@ -205,7 +205,6 @@ export default class DeviceListScreen extends React.Component {
 
   requestEnabled = async () => {
     try {
-      RNBluetoothClassic.openBluetoothSettings();
     } catch (error) {
       Toast.show({
         text: `Error occurred while enabling bluetooth: ${error.message}`,
