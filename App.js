@@ -97,7 +97,7 @@ const App = () => {
         ) : (
           <ConnectionScreen
             device={device}
-            onBack={() => setState({device: undefined})}
+            onBack={() => setDevice(undefined)}
           />
         )}
       </Root>
