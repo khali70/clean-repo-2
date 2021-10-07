@@ -52,46 +52,40 @@ const requestAccessFineLocationPermission = async () => {
  * - paired devices can be connected
  *
  * @author kendavidson
+ *
  */
-export default class DeviceListScreen extends React.Component {
-  constructor(props) {
-    super(props);
+const DeviceListScreen = ({bluetoothEnabled, selectDevice}) => {
+  const [devices, setDevices] = React.useState([]);
+  const [accepting, setAccepting] = React.useState(false);
+  const [discovering, setDiscovering] = React.useState(false);
 
-    this.state = {
-      devices: [],
-      accepting: false,
-      discovering: false,
+  React.useEffect(() => {
+    getBondedDevices();
+    return () => {
+      if (accepting) {
+        cancelAcceptConnections(false);
+      }
+
+      if (discovering) {
+        cancelDiscovery(false);
+      }
     };
-  }
-
-  componentDidMount() {
-    this.getBondedDevices();
-  }
-
-  componentWillUnmount() {
-    if (this.state.accepting) {
-      this.cancelAcceptConnections(false);
-    }
-
-    if (this.state.discovering) {
-      this.cancelDiscovery(false);
-    }
-  }
+  }, []);
 
   /**
    * Gets the currently bonded devices.
    */
-  getBondedDevices = async unloading => {
+  const getBondedDevices = async unloading => {
     console.log('DeviceListScreen::getBondedDevices');
     try {
       let bonded = await RNBluetoothClassic.getBondedDevices();
       console.log('DeviceListScreen::getBondedDevices found', bonded);
 
       if (!unloading) {
-        this.setState({devices: bonded});
+        setDevices(bonded);
       }
     } catch (error) {
-      this.setState({devices: []});
+      setDevices([]);
 
       Toast.show({
         text: error.message,
@@ -104,8 +98,8 @@ export default class DeviceListScreen extends React.Component {
    * Starts attempting to accept a connection.  If a device was accepted it will
    * be passed to the application context as the current device.
    */
-  acceptConnections = async () => {
-    if (this.state.accepting) {
+  const acceptConnections = async () => {
+    if (accepting) {
       Toast.show({
         text: 'Already accepting connections',
         duration: 5000,
@@ -113,26 +107,25 @@ export default class DeviceListScreen extends React.Component {
 
       return;
     }
-
-    this.setState({accepting: true});
+    setAccepting(true);
 
     try {
       let device = await RNBluetoothClassic.accept({delimiter: '\r'});
       if (device) {
-        this.props.selectDevice(device);
+        selectDevice(device);
       }
     } catch (error) {
       // If we're not in an accepting state, then chances are we actually
       // requested the cancellation.  This could be managed on the native
       // side but for now this gives more options.
-      if (!this.state.accepting) {
+      if (!accepting) {
         Toast.show({
           text: 'Attempt to accept connection failed.',
           duration: 5000,
         });
       }
     } finally {
-      this.setState({accepting: false});
+      setAccepting(false);
     }
   };
 
@@ -140,14 +133,14 @@ export default class DeviceListScreen extends React.Component {
    * Cancels the current accept - might be wise to check accepting state prior
    * to attempting.
    */
-  cancelAcceptConnections = async () => {
-    if (!this.state.accepting) {
+  const cancelAcceptConnections = async () => {
+    if (!accepting) {
       return;
     }
 
     try {
       let cancelled = await RNBluetoothClassic.cancelAccept();
-      this.setState({accepting: !cancelled});
+      setAccepting(!cancelled);
     } catch (error) {
       Toast.show({
         text: 'Unable to cancel accept connection',
@@ -156,17 +149,17 @@ export default class DeviceListScreen extends React.Component {
     }
   };
 
-  startDiscovery = async () => {
+  const startDiscovery = async () => {
     try {
       let granted = await requestAccessFineLocationPermission();
 
       if (!granted) {
         throw new Error('Access fine location was not granted');
       }
+      console.log('discovering...');
+      setDiscovering(true);
 
-      this.setState({discovering: true});
-
-      let devices = [...this.state.devices];
+      let devices = [...devices];
 
       try {
         let unpaired = await RNBluetoothClassic.startDiscovery();
@@ -183,7 +176,8 @@ export default class DeviceListScreen extends React.Component {
           duration: 2000,
         });
       } finally {
-        this.setState({devices, discovering: false});
+        setDevices(devices);
+        setDiscovering(false);
       }
     } catch (err) {
       Toast.show({
@@ -193,7 +187,7 @@ export default class DeviceListScreen extends React.Component {
     }
   };
 
-  cancelDiscovery = async () => {
+  const cancelDiscovery = async () => {
     try {
     } catch (error) {
       Toast.show({
@@ -203,8 +197,9 @@ export default class DeviceListScreen extends React.Component {
     }
   };
 
-  requestEnabled = async () => {
+  const requestEnabled = async () => {
     try {
+      alert('read the documentation and see how to  enable bluetooth device');
     } catch (error) {
       Toast.show({
         text: `Error occurred while enabling bluetooth: ${error.message}`,
@@ -213,66 +208,66 @@ export default class DeviceListScreen extends React.Component {
     }
   };
 
-  render() {
-    let toggleAccept = this.state.accepting
-      ? () => this.cancelAcceptConnections()
-      : () => this.acceptConnections();
+  const toggleAccept = () => {
+    if (accepting) {
+      cancelAcceptConnections();
+    } else {
+      acceptConnections();
+    }
+  };
 
-    let toggleDiscovery = this.state.discovering
-      ? () => this.cancelDiscovery()
-      : () => this.startDiscovery();
+  const toggleDiscovery = () => {
+    console.log('toggle discovering');
+    if (discovering) {
+      cancelDiscovery();
+    } else {
+      startDiscovery();
+    }
+  };
 
-    return (
-      <Container>
-        <Header iosBarStyle="light-content">
-          <Body>
-            <Title>Devices</Title>
-          </Body>
-          {this.props.bluetoothEnabled ? (
-            <Right>
-              <Button transparent onPress={this.getBondedDevices}>
-                <Icon type="Ionicons" name="md-sync" />
-              </Button>
-            </Right>
-          ) : undefined}
-        </Header>
-        {this.props.bluetoothEnabled ? (
-          <>
-            <DeviceList
-              devices={this.state.devices}
-              onPress={this.props.selectDevice}
-            />
-            {Platform.OS !== 'ios' ? (
-              <View>
-                <Button block onPress={toggleAccept}>
-                  <Text>
-                    {this.state.accepting
-                      ? 'Accepting (cancel)...'
-                      : 'Accept Connection'}
-                  </Text>
-                </Button>
-                <Button block onPress={toggleDiscovery}>
-                  <Text>
-                    {this.state.discovering
-                      ? 'Discovering (cancel)...'
-                      : 'Discover Devices'}
-                  </Text>
-                </Button>
-              </View>
-            ) : undefined}
-          </>
-        ) : (
-          <Content contentContainerStyle={styles.center}>
-            <Text>Bluetooth is OFF</Text>
-            <Button onPress={() => this.requestEnabled()}>
-              <Text>Enable Bluetooth</Text>
+  return (
+    <Container>
+      <Header iosBarStyle="light-content">
+        <Body>
+          <Title>Devices</Title>
+        </Body>
+        {bluetoothEnabled ? (
+          <Right>
+            <Button transparent onPress={this.getBondedDevices}>
+              <Icon type="Ionicons" name="md-sync" />
             </Button>
-          </Content>
-        )}
-      </Container>
-    );
-  }
-}
+          </Right>
+        ) : undefined}
+      </Header>
+      {bluetoothEnabled ? (
+        <>
+          <DeviceList devices={devices} onPress={selectDevice} />
+          {Platform.OS !== 'ios' ? (
+            <View>
+              {/* <Button block onPress={() => toggleAccept()}>
+                <Text>
+                  {accepting ? 'Accepting (cancel)...' : 'Accept Connection'}
+                </Text>
+              </Button> */}
+              <Button block onPress={() => toggleDiscovery()}>
+                <Text>
+                  {discovering ? 'Discovering (cancel)...' : 'Discover Devices'}
+                </Text>
+              </Button>
+            </View>
+          ) : undefined}
+        </>
+      ) : (
+        <Content contentContainerStyle={styles.center}>
+          <Text>Bluetooth is OFF</Text>
+          <Button onPress={() => requestEnabled()}>
+            <Text>Enable Bluetooth</Text>
+          </Button>
+        </Content>
+      )}
+    </Container>
+  );
+};
 
 /**
  * Displays a list of Bluetooth devices.
@@ -283,6 +278,8 @@ export default class DeviceListScreen extends React.Component {
  */
 export const DeviceList = ({devices, onPress, onLongPress}) => {
   const renderItem = ({item}) => {
+    console.log('item');
+    console.log(item);
     return (
       <DeviceListItem
         device={item}
@@ -296,13 +293,13 @@ export const DeviceList = ({devices, onPress, onLongPress}) => {
     <FlatList
       data={devices}
       renderItem={renderItem}
-      keyExtractor={item => item.address}
+      keyExtractor={item => (item ? item.address : 'key')}
     />
   );
 };
 
 export const DeviceListItem = ({device, onPress, onLongPress}) => {
-  let bgColor = device.connected ? '#0f0' : '#fff';
+  let bgColor = device?.connected ? '#0f0' : '#fff';
   let icon = device.bonded ? 'ios-bluetooth' : 'ios-cellular';
 
   return (
@@ -339,3 +336,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+export default DeviceListScreen;
