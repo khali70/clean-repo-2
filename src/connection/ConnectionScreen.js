@@ -19,7 +19,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from 'react-native';
-import { Buffer } from 'buffer';
+import {Buffer} from 'buffer';
 
 /**
  * Manages a selected device connection.  The selected Device should
@@ -95,7 +95,7 @@ export default class ConnectionScreen extends React.Component {
         });
       }
 
-      this.setState({ connection });
+      this.setState({connection});
       this.initializeRead();
     } catch (error) {
       this.addData({
@@ -118,7 +118,7 @@ export default class ConnectionScreen extends React.Component {
         type: 'info',
       });
 
-      this.setState({ connection: !disconnected });
+      this.setState({connection: !disconnected});
     } catch (error) {
       this.addData({
         data: `Disconnect failed: ${error.message}`,
@@ -132,13 +132,15 @@ export default class ConnectionScreen extends React.Component {
   }
 
   initializeRead() {
-    this.disconnectSubscription = RNBluetoothClassic.onDeviceDisconnected(() => this.disconnect(true));
+    this.disconnectSubscription = RNBluetoothClassic.onDeviceDisconnected(() =>
+      this.disconnect(true),
+    );
 
     if (this.state.polling) {
       this.readInterval = setInterval(() => this.performRead(), 5000);
     } else {
       this.readSubscription = this.props.device.onDataReceived(data =>
-        this.onReceivedData(data)
+        this.onReceivedData(data),
       );
     }
   }
@@ -168,7 +170,7 @@ export default class ConnectionScreen extends React.Component {
 
           console.log(`Read data ${data}`);
           console.log(data);
-          this.onReceivedData({ data });
+          this.onReceivedData({data});
         }
       }
     } catch (err) {
@@ -192,7 +194,7 @@ export default class ConnectionScreen extends React.Component {
   }
 
   async addData(message) {
-    this.setState({ data: [message, ...this.state.data] });
+    this.setState({data: [message, ...this.state.data]});
   }
 
   /**
@@ -205,7 +207,7 @@ export default class ConnectionScreen extends React.Component {
       let message = this.state.text + '\r';
       await RNBluetoothClassic.writeToDevice(
         this.props.device.address,
-        message
+        message,
       );
 
       this.addData({
@@ -214,16 +216,7 @@ export default class ConnectionScreen extends React.Component {
         type: 'sent',
       });
 
-      let data = Buffer.alloc(10, 0xEF);
-      await this.props.device.write(data);
-
-      this.addData({
-        timestamp: new Date(),
-        data: `Byte array: ${data.toString()}`,
-        type: 'sent',
-      });
-
-      this.setState({ text: undefined });
+      this.setState({text: undefined});
     } catch (error) {
       console.log(error);
     }
@@ -263,15 +256,16 @@ export default class ConnectionScreen extends React.Component {
         <View style={styles.connectionScreenWrapper}>
           <FlatList
             style={styles.connectionScreenOutput}
-            contentContainerStyle={{ justifyContent: 'flex-end' }}
+            contentContainerStyle={{justifyContent: 'flex-end'}}
             inverted
             ref="scannedDataList"
             data={this.state.data}
-            keyExtractor={(item) => item.timestamp.toISOString()}
-            renderItem={({ item }) => (
+            keyExtractor={item => item.timestamp.toISOString()}
+            renderItem={({item}) => (
               <View
                 id={item.timestamp.toISOString()}
-                flexDirection={'row'} justifyContent={'flex-start'}>
+                flexDirection={'row'}
+                justifyContent={'flex-start'}>
                 <Text>{item.timestamp.toLocaleDateString()}</Text>
                 <Text>{item.type === 'sent' ? ' < ' : ' > '}</Text>
                 <Text flexShrink={1}>{item.data.trim()}</Text>
@@ -280,7 +274,7 @@ export default class ConnectionScreen extends React.Component {
           />
           <InputArea
             text={this.state.text}
-            onChangeText={text => this.setState({ text })}
+            onChangeText={text => this.setState({text})}
             onSend={() => this.sendData()}
             disabled={!this.state.connection}
           />
@@ -290,7 +284,7 @@ export default class ConnectionScreen extends React.Component {
   }
 }
 
-const InputArea = ({ text, onChangeText, onSend, disabled }) => {
+const InputArea = ({text, onChangeText, onSend, disabled}) => {
   let style = disabled ? styles.inputArea : styles.inputAreaConnected;
   return (
     <View style={style}>
