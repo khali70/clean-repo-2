@@ -1,1 +1,1 @@
-this repo is for hosting the excel electron app
+snippites of js and css that i use and would like to share

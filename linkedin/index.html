@@ -1,0 +1,25 @@
+<style>
+.ar{
+    direction:rtl;
+    text-align:right;
+  background-color:#ccc;
+}
+</style>
+<script>
+window.onkeypress=()=>{
+    const checkAr = (str)=> /^[\u0600-\u06FF\u0750-\u077f]+/u.test(str);
+
+   Array.from(document.querySelectorAll('.ql-editor')).forEach((input)=>{
+    if(
+        checkAr(input.innerText)
+      ){
+        console.log('text Ar')
+        input.classList.add('ar')
+    }else{
+        console.log('not Ar');
+        input.classList.remove('ar')
+    }
+
+})
+}
+</script>
